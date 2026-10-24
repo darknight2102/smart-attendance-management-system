@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart Attendance Management</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:#f3f6fb;color:#172033}
+header{background:#172554;color:white;padding:22px 6%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+main{max-width:1100px;margin:28px auto;padding:0 18px}.panel{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 5px 20px #0f172a0a}
+h1{font-size:22px;margin:0}h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+input,select,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid #cbd5e1;width:100%;margin:4px 0}
+button{background:#1d4ed8;color:white;border:0;cursor:pointer;font-weight:600}button.secondary{background:#334155}button:hover{opacity:.92}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;min-height:54px}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #e2e8f0}small{color:#64748b}.scroll{overflow:auto}
+</style></head>
+<body>
+<header><h1>Smart Attendance Management</h1><span>Admin dashboard demo</span></header>
+<main>
+<section class="panel"><h2>1. Sign in</h2>
+<div class="grid"><input id="username" value="admin" placeholder="Username"><input id="password" type="password" value="Admin123!" placeholder="Password"></div>
+<button onclick="login()">Connect to API</button><small>Demo accounts are listed in README. Do not use these credentials in production.</small><pre id="loginResult">Not connected</pre></section>
+<section class="panel"><h2>2. Add student (admin only)</h2>
+<form id="studentForm"><input name="name" placeholder="Full name" required><input name="rollNumber" placeholder="Roll number" required><input name="email" type="email" placeholder="Email" required><input name="course" placeholder="Course / branch" required><button>Add student</button></form>
+<button class="secondary" onclick="loadStudents()">Refresh student list</button><div class="scroll"><table><thead><tr><th>ID</th><th>Name</th><th>Roll no.</th><th>Email</th><th>Course</th></tr></thead><tbody id="students"></tbody></table></div></section>
+<section class="panel"><h2>3. Mark attendance (admin only)</h2>
+<form id="attendanceForm"><input name="studentId" type="number" min="1" placeholder="Student ID" required><input name="date" type="date" required><input name="subject" placeholder="Subject" required><select name="status"><option>PRESENT</option><option>ABSENT</option></select><button>Save attendance</button></form></section>
+<section class="panel"><h2>4. Attendance report (admin only)</h2>
+<form id="reportForm"><input name="studentId" type="number" min="1" placeholder="Student ID" required><button>Get report</button></form><pre id="reportResult">Report will appear here.</pre></section>
+<section class="panel"><h2>API response</h2><pre id="output">Ready</pre></section>
+</main>
+<script>
+let auth='';
+const out=(x)=>document.getElementById('output').textContent=typeof x==='string'?x:JSON.stringify(x,null,2);
+async function api(path,options={}) {
+ const r=await fetch(path,{...options,headers:{'Content-Type':'application/json','Authorization':auth,...(options.headers||{})}});
+ const text=await r.text(); let data=text; try{data=text?JSON.parse(text):'Request successful'}catch{}
+ if(!r.ok) throw new Error(typeof data==='string'?data:JSON.stringify(data));
+ return data;
+}
+async function login(){auth='Basic '+btoa(document.getElementById('username').value+':'+document.getElementById('password').value);
+ try{const data=await api('/api/students');document.getElementById('loginResult').textContent='Connected. Students visible: '+data.length;out('Login successful');loadStudents()}catch(e){auth='';document.getElementById('loginResult').textContent='Login/API error: '+e.message;out(e.message)}}
+async function loadStudents(){try{const data=await api('/api/students');document.getElementById('students').innerHTML=data.map(s=>`<tr><td>${s.id}</td><td>${s.name}</td><td>${s.rollNumber}</td><td>${s.email}</td><td>${s.course}</td></tr>`).join('');out(data)}catch(e){out(e.message)}}
+document.getElementById('studentForm').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{out(await api('/api/students',{method:'POST',body:JSON.stringify(d)}));e.target.reset();loadStudents()}catch(err){out(err.message)}});
+document.getElementById('attendanceForm').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.studentId=Number(d.studentId);try{out(await api('/api/attendance',{method:'POST',body:JSON.stringify(d)}));}catch(err){out(err.message)}});
+document.getElementById('reportForm').addEventListener('submit',async e=>{e.preventDefault();const id=e.target.studentId.value;try{document.getElementById('reportResult').textContent=JSON.stringify(await api('/api/reports/student/'+id),null,2)}catch(err){document.getElementById('reportResult').textContent=err.message}});
+document.querySelector('[name=date]').value=new Date().toISOString().slice(0,10);
+</script></body></html>
